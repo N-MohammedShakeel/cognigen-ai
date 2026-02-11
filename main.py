@@ -1,4 +1,4 @@
-# main.py
+# cognigen-ai-service/main.py
 
 import logging
 import json

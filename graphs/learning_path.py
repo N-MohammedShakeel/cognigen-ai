@@ -1,4 +1,4 @@
-# graphs/learning_path.py
+# cognigen-ai-service/graphs/learning_path.py
 
 from typing import TypedDict, List, Dict
 import uuid
@@ -31,7 +31,6 @@ class LPState(TypedDict, total=False):
     learning_path: dict
 
 
-# -------------------------------------------------------
 def input_node(state: LPState):
     return state
 
@@ -49,7 +48,6 @@ def profile_node(state: LPState):
     return state
 
 
-# -------------------------------------------------------
 def auto_topic_gen_node(state: LPState):
     sp = state["student_profile"]
 
@@ -79,7 +77,6 @@ Goal: {sp['goal']}
     return state
 
 
-# -------------------------------------------------------
 def topic_generation_node(state: LPState):
     sp = state["student_profile"]
 
@@ -94,7 +91,6 @@ def topic_generation_node(state: LPState):
                 "submodules": [],
             })
 
-        # Normalize + difficulty + time
         topics = normalize_topic_fields(topics, sp["experience_level"])
         topics = limit_topics_by_difficulty(topics, sp["experience_level"])
 
@@ -105,7 +101,6 @@ def topic_generation_node(state: LPState):
         }
         return state
 
-    # (Otherwise) GENERATE NORMAL TOPICS USING LLM
     base_topics = [t["name"] for t in state.get("auto_topics", [])]
 
     system = """
@@ -141,7 +136,6 @@ Core topics: {base_topics}
 
 
 
-# -------------------------------------------------------
 def submodule_gen_node(state: LPState):
     sp = state["student_profile"]
     topics = state["llm_topics"]["topics"]
@@ -187,7 +181,6 @@ Experience level: {sp['experience_level']}
     return state
 
 
-# -------------------------------------------------------
 def learning_path_builder_node(state: LPState):
     sp = state["student_profile"]
     llm = state["llm_topics"]

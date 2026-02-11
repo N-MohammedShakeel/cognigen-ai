@@ -1,4 +1,4 @@
-# graphs/content_gen.py
+# cognigen-ai-service/graphs/content_gen.py
 from typing import TypedDict, List, Dict
 import ollama
 from datetime import datetime
@@ -34,7 +34,6 @@ def is_content_valid(raw: Dict) -> bool:
         if k not in raw:
             return False
 
-    # Title or explanation being empty = invalid
     if len(raw.get("explanation", "")) < 50:
         return False
 

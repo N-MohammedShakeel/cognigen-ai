@@ -1,4 +1,4 @@
-# schemas.py
+# cognigen-ai-service/schemas.py
 from pydantic import BaseModel, Field
 from typing import List, Dict, Literal, Optional
 from datetime import datetime

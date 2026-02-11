@@ -1,4 +1,4 @@
-# utils/common.py
+# cognigen-ai-service/utils/common.py
 import json
 import re
 import uuid
@@ -6,9 +6,6 @@ from typing import List, Dict
 from datetime import datetime
 
 
-# ---------------------------------------------------------
-# UNIVERSAL, BULLET-PROOF JSON EXTRACTOR (FINAL VERSION)
-# ---------------------------------------------------------
 def extract_json(text: str) -> dict:
     """
     Safely extract JSON from LLM output.
@@ -22,7 +19,6 @@ def extract_json(text: str) -> dict:
 
     raw_text = text
 
-    # Strip markdown formatting
     cleaned = (
         text.replace("```json", "")
             .replace("```", "")
@@ -34,7 +30,6 @@ def extract_json(text: str) -> dict:
     try:
         result = json.loads(cleaned)
 
-        # If LLM returns single-item list → flatten it
         if isinstance(result, list) and len(result) == 1 and isinstance(result[0], dict):
             return result[0]
 
