@@ -1,10 +1,9 @@
-# cognigen-ai-service/main.py
-
 import logging
 import json
 import traceback
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Request
+from typing import Dict
 
 from schemas import (
     LearningPathCreateRequest,
@@ -12,8 +11,10 @@ from schemas import (
     TopicContentGenerateRequest,
     TopicContentResponse
 )
+
 from graphs.learning_path import learning_path_graph
 from graphs.content_gen import content_graph
+from graphs.quiz_gen import quiz_graph   # ✅ REQUIRED
 
 
 # ---------------------------------------------------------
@@ -106,7 +107,8 @@ async def generate_topic_content(payload: TopicContentGenerateRequest, request: 
         return {
             "topic_id": payload.topic_id,
             "topic_name": payload.topic_name,
-            "content": contents
+            "content": contents,
+            "summary": result.get("summary", {})
         }
 
     except Exception as e:
@@ -119,17 +121,69 @@ async def generate_topic_content(payload: TopicContentGenerateRequest, request: 
             detail=f"Topic content creation failed: {str(e)}"
         )
 
-# file structure:
-# - main.py
-# - schemas.py
-# - graphs/
-#   - __init__.py
-#   - learning_path.py
-#   - content_gen.py
-# - utils/
-#   - __init__.py
-#   - common.py
 
+# ---------------------------------------------------------
+# MINI QUIZ GENERATION
+# ---------------------------------------------------------
+@app.post("/api/generate-mini-quiz")
+async def generate_mini_quiz(payload: Dict, request: Request):
+    start_time = datetime.utcnow()
+
+    logger.info("📥 Received Mini Quiz Generation Request")
+    logger.info(f"➡ Endpoint: {request.url.path}")
+    logger.info(f"➡ Payload: {json.dumps(payload, indent=2)}")
+
+    try:
+        logger.info("⚙️ Running Mini Quiz Graph...")
+        result = quiz_graph.invoke(payload)
+        logger.info("✅ Mini Quiz Graph Execution Completed")
+
+        exec_time = (datetime.utcnow() - start_time).total_seconds()
+        logger.info(f"⏳ Mini Quiz generation took {exec_time} seconds")
+        logger.info("📤 Sending Mini Quiz Response")
+
+        return {
+        "submodule_id": result.get("submodule_id"),
+        "quiz": result.get("quiz", [])
+    }
+
+    except Exception as e:
+        logger.error("❌ Error during mini quiz generation")
+        logger.error(f"Exception: {str(e)}")
+        logger.error(traceback.format_exc())
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Mini quiz generation failed: {str(e)}"
+        )
+
+
+
+
+# cognigen-ai-service/
+# ├── main.py
+# ├── schemas.py
+# ├── graphs/
+# │   ├── learning_path.py
+# │   ├── content_gen.py
+# │   ├── quiz_gen.py
+# ├── utils/
+# │   ├── common.py
+# │   ├── text_cleaner.py
+# ├── planners/
+# │   ├── query_planner.py
+# ├── scrapers/
+# │   ├── web_scraper.py
+# ├── vector_stores/
+# │   ├── faiss_vector.py
+# │   ├── python.index
+# │   ├── python_metadata.json
+# │   ├── ingestion/
+# │       ├── ingest.py
+# │       ├── youtube_fetcher.py
+# │       ├── docx_parser.py
+# ├── tests/
+#
 # To run the service:
-# 1. Install dependencies: pip install fastapi uvicorn
-# 2. Start the server: uvicorn main:app --reload
+# 1. pip install fastapi uvicorn
+# 2. uvicorn main:app --reload

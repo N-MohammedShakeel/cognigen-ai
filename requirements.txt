@@ -5,3 +5,9 @@ langgraph
 langchain-core
 ollama
 pillow
+sentence-transformers 
+faiss-cpu 
+google-api-python-client 
+python-docx 
+tqdm
+python-dotenv

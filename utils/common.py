@@ -1,4 +1,4 @@
-# cognigen-ai-service/utils/common.py
+
 import json
 import re
 import uuid
@@ -6,70 +6,78 @@ from typing import List, Dict
 from datetime import datetime
 
 
-def extract_json(text: str) -> dict:
+# ---------------------------------------------------------
+# SAFE JSON EXTRACTION (Production Stable)
+# ---------------------------------------------------------
+def extract_json(text: str):
     """
-    Safely extract JSON from LLM output.
+    Extract JSON safely from LLM output.
+
     Handles:
-    - Markdown fences (```json)
+    - Markdown fences
+    - Embedded ```python blocks
     - Noise before/after JSON
-    - Large JSON blocks
-    - Lists containing a single dict
-    - Dangling commas
+    - Trailing commas
+    - Array wrapping
     """
 
-    raw_text = text
+    raw_text = text.strip()
 
-    cleaned = (
-        text.replace("```json", "")
-            .replace("```", "")
-            .replace("`", "")
-            .strip()
-    )
+    # Remove markdown fences only (do NOT remove backticks inside content)
+    cleaned = raw_text.replace("```json", "").replace("```", "").strip()
 
-    # 1) Try loading entire cleaned content
+    # -------------------------------
+    # 1️⃣ Direct JSON parse (fast path)
+    # -------------------------------
     try:
-        result = json.loads(cleaned)
-
-        if isinstance(result, list) and len(result) == 1 and isinstance(result[0], dict):
-            return result[0]
-
-        return result
-
-    except Exception:
+        parsed = json.loads(cleaned)
+        return parsed
+    except:
         pass
 
-    # 2) Extract JSON blocks using regex, largest first
-    blocks = re.findall(r"\{[\s\S]*?\}|\[[\s\S]*?\]", cleaned)
-    blocks = sorted(blocks, key=len, reverse=True)
+    # -------------------------------
+    # 2️⃣ Extract biggest JSON block
+    # -------------------------------
+    blocks = re.findall(r"\{[\s\S]*\}|\[[\s\S]*\]", cleaned)
 
-    for block in blocks:
+    if blocks:
+        largest = max(blocks, key=len)
+
+        # Remove trailing commas
+        largest = re.sub(r",(\s*[}\]])", r"\1", largest)
+
         try:
-            result = json.loads(block)
+            parsed = json.loads(largest)
+            return parsed
+        except:
+            pass
 
-            if isinstance(result, list) and len(result) == 1 and isinstance(result[0], dict):
-                return result[0]
-
-            return result
-
-        except Exception:
-            continue
-
-    # 3) Fix trailing commas
-    cleaned2 = re.sub(r",(\s*[}\]])", r"\1", cleaned)
-    try:
-        result = json.loads(cleaned2)
-
-        if isinstance(result, list) and len(result) == 1 and isinstance(result[0], dict):
-            return result[0]
-
-        return result
-
-    except Exception:
-        raise ValueError(f"❌ JSON extraction failed.\nRAW OUTPUT:\n{raw_text}")
+    # -------------------------------
+    # 3️⃣ Final fallback
+    # -------------------------------
+    raise ValueError(
+        f"❌ JSON extraction failed.\nRAW OUTPUT:\n{raw_text}"
+    )
 
 
 # ---------------------------------------------------------
-# TOPIC NORMALIZATION
+# LLM SAFE PARSER (USE THIS EVERYWHERE)
+# ---------------------------------------------------------
+def safe_parse_llm_json(raw: str):
+    """
+    Production-safe LLM JSON parser.
+    Tries direct json.loads first.
+    Falls back to extract_json.
+    """
+
+    try:
+        return json.loads(raw)
+    except:
+        return extract_json(raw)
+
+
+# ---------------------------------------------------------
+# TOPIC NORMALIZATION (old workflow – unchanged)
 # ---------------------------------------------------------
 def normalize_topic_fields(topics: List[Dict], exp_level: str) -> List[Dict]:
     diff_map = {
@@ -90,7 +98,7 @@ def normalize_topic_fields(topics: List[Dict], exp_level: str) -> List[Dict]:
 
 
 # ---------------------------------------------------------
-# LIMIT TOPICS BASED ON DIFFICULTY PRIORITY
+# LIMIT TOPICS
 # ---------------------------------------------------------
 def limit_topics_by_difficulty(topics: List[Dict], exp_level: str) -> List[Dict]:
     priority_map = {
@@ -101,44 +109,37 @@ def limit_topics_by_difficulty(topics: List[Dict], exp_level: str) -> List[Dict]
 
     prio = priority_map.get(exp_level.lower(), priority_map["beginner"])
 
-    topics = sorted(
+    sorted_topics = sorted(
         topics,
         key=lambda t: (prio.get(t["difficulty"], 3), t["order"])
-    )
+    )[:10]
 
-    topics = topics[:10]
-
-    for i, t in enumerate(topics, start=1):
+    for i, t in enumerate(sorted_topics, start=1):
         t["order"] = i
 
-    return topics
+    return sorted_topics
 
 
 # ---------------------------------------------------------
-# CLEAN CONTENT TEMPLATE (FULLY SAFE VERSION)
+# OLD TEMPLATE NORMALIZER (keep for backward compatibility)
 # ---------------------------------------------------------
 def enforce_content_template(raw: dict, submodule: dict) -> dict:
     """
-    Ensures all required fields exist, fixes missing keys,
-    and handles cases when raw is list or malformed.
+    Older version content format — retained for backward compatibility.
+    New system uses "cells" so this is rarely used now.
     """
 
-    # If raw is a list → use first dict
     if isinstance(raw, list):
         raw = raw[0] if raw and isinstance(raw[0], dict) else {}
-
-    # If still not dict → reset to empty dict
     if not isinstance(raw, dict):
         raw = {}
 
-    # Ensure LLM output has a valid array
     code_examples = raw.get("code_examples", [])
     if isinstance(code_examples, list):
         for ex in code_examples:
             if "explanation" not in ex:
                 ex["explanation"] = "Explanation unavailable."
 
-    # Final normalized output
     return {
         "submodule_id": submodule.get("id", str(uuid.uuid4())),
         "title": raw.get("title", submodule["title"]),
