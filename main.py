@@ -14,7 +14,7 @@ from schemas import (
 
 from graphs.learning_path import learning_path_graph
 from graphs.content_gen import content_graph
-from graphs.quiz_gen import quiz_graph   # ✅ REQUIRED
+from graphs.quiz_gen import quiz_graph
 
 
 # ---------------------------------------------------------
@@ -185,5 +185,4 @@ async def generate_mini_quiz(payload: Dict, request: Request):
 # ├── tests/
 #
 # To run the service:
-# 1. pip install fastapi uvicorn
-# 2. uvicorn main:app --reload
+# 1. uvicorn main:app --reload
